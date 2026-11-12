@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+.pylibs/
+work/
+work-*/
+frames/
+*.mp4
+*.mov
