@@ -124,7 +124,7 @@ python campus_video.py copy \
 
 ```json
 {
-  "公司A": "已OC",
+  "公司A": "已 OC",
   "公司B": "二面挂",
   "公司C": "笔试挂"
 }
@@ -208,7 +208,7 @@ python campus_video.py all \
 
 公司E 一面挂
 
-公司F 已OC
+公司F 已 OC
 
 特别鸣谢
 
@@ -220,7 +220,7 @@ python campus_video.py all \
 以及，终于走到这里的你
 ```
 
-结果分档固定为：`简历挂 → 笔试挂 → 一面挂 → 二面挂 → 三面挂 → 已OC`，每档内按拼音 A-Z。
+结果分档固定为：`简历挂 → 笔试挂 → 一面挂 → 二面挂 → 三面挂 → 已 OC`，每档内按拼音 A-Z。
 
 要改文案，直接编辑 `work/copy.txt`；`render` 只依赖这个文件。
 

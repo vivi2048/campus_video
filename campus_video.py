@@ -40,8 +40,9 @@ PROVIDERS = {
     "126": ("imap.126.com", 993),
     "gmail": ("imap.gmail.com", 993),
 }
-STATUSES = {"简历挂", "笔试挂", "一面挂", "二面挂", "三面挂", "已OC"}
-OUTCOME_ORDER = ["简历挂", "笔试挂", "一面挂", "二面挂", "三面挂", "已OC"]
+STATUSES = {"简历挂", "笔试挂", "一面挂", "二面挂", "三面挂", "已 OC"}
+LEGACY_STATUSES = {"已OC"}
+OUTCOME_ORDER = ["简历挂", "笔试挂", "一面挂", "二面挂", "三面挂", "已 OC"]
 OUTCOME_RANK = {name: i for i, name in enumerate(OUTCOME_ORDER)}
 
 DEFAULT_COPY = {
@@ -127,6 +128,19 @@ class ToolError(Exception):
 
 def log(message: str) -> None:
     print(message, flush=True)
+
+
+def normalize_status(value: str) -> str:
+    value = (value or "").strip()
+    return "已 OC" if value == "已OC" else value
+
+
+def split_company_line(line: str) -> tuple[str, str] | None:
+    for status in sorted(STATUSES | LEGACY_STATUSES, key=len, reverse=True):
+        suffix = " " + status
+        if line.endswith(suffix):
+            return line[: -len(suffix)].rstrip(), normalize_status(status)
+    return None
 
 
 def read_jsonl(path: Path) -> list[dict]:
@@ -539,7 +553,7 @@ def outcome_for(rec: dict) -> tuple[int, str]:
     if re.search(r"满意度|体验调研|面试体验|体验反馈|反馈收集|问卷|调研|进行评价|做出评价|面试评价", text):
         return -1, ""
     if stage == "OC":
-        return 5, "已OC"
+        return 5, "已 OC"
     if stage == "拒绝":
         return 0, "简历挂"
     if stage == "面试结果" and status == "未通过":
@@ -590,7 +604,7 @@ def build_outcomes(results: list[dict], emails: list[dict], args: argparse.Names
     rows = []
     for company, (rank, label, date) in best.items():
         if company in overrides:
-            label = overrides[company]
+            label = normalize_status(overrides[company])
         if keep and company not in keep:
             continue
         if company in drop:
@@ -754,7 +768,7 @@ def render_video(args: argparse.Namespace) -> Path:
             return "header"
         if line.startswith(("以及，", "以及,")):
             return "final"
-        if line.rsplit(" ", 1)[-1] in STATUSES:
+        if split_company_line(line) is not None:
             return "company"
         return "thanks"
 
@@ -769,7 +783,7 @@ def render_video(args: argparse.Namespace) -> Path:
         nonempty += 1
         item = {"kind": kind, "text": line, **styles[kind]}
         if kind == "company":
-            item["name"], item["status"] = line.rsplit(" ", 1)
+            item["name"], item["status"] = split_company_line(line)
         items.append(item)
 
     total_height = sum(item["height"] for item in items)
@@ -931,7 +945,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_copy.add_argument("--max-companies", type=int, default=0, help="最多保留 N 家，0 为全部")
     p_copy.add_argument("--keep", default="", help="只保留这些公司，逗号分隔")
     p_copy.add_argument("--drop", default="", help="排除这些公司，逗号分隔")
-    p_copy.add_argument("--overrides", default="", help="JSON 文件，手动指定公司结果，如 {\"公司A\":\"已OC\"}")
+    p_copy.add_argument("--overrides", default="", help="JSON 文件，手动指定公司结果，如 {\"公司A\":\"已 OC\"}")
     p_copy.add_argument("--template", default="", help="自定义文案模板，支持 {title} {companies} 等占位符")
 
     p_render = sub.add_parser("render", help="把文案渲染成视频")
