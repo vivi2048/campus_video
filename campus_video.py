@@ -623,6 +623,18 @@ def build_outcomes(results: list[dict], emails: list[dict], args: argparse.Names
     return rows
 
 
+def format_company_lines(rows: list[tuple[str, str, str]]) -> str:
+    lines: list[str] = []
+    previous_rank: int | None = None
+    for company, label, _ in rows:
+        rank = OUTCOME_RANK.get(label)
+        if previous_rank is not None and rank != previous_rank:
+            lines.append("")
+        lines.append(f"{company} {label}")
+        previous_rank = rank
+    return "\n".join(lines)
+
+
 def build_copy(args: argparse.Namespace) -> Path:
     work = Path(args.work)
     results = read_jsonl(work / "results.jsonl")
@@ -634,6 +646,7 @@ def build_copy(args: argparse.Namespace) -> Path:
         raise ToolError("没有可输出的公司记录。")
     outcomes_path = work / "outcomes.txt"
     outcomes_path.write_text("\n".join(f"{c} {l}" for c, l, _ in rows), encoding="utf-8")
+    company_lines = format_company_lines(rows)
 
     copy = DEFAULT_COPY.copy()
     if args.title:
@@ -641,7 +654,7 @@ def build_copy(args: argparse.Namespace) -> Path:
     if args.template:
         template = Path(args.template).read_text(encoding="utf-8")
         body = template.replace("{title}", copy["title"])
-        body = body.replace("{companies}", "\n".join(f"{c} {l}" for c, l, _ in rows))
+        body = body.replace("{companies}", company_lines)
         body = body.replace("{dedication}", "\n".join(copy["dedication"]))
         body = body.replace("{credits}", "\n".join(copy["credits"]))
         body = body.replace("{thanks}", "\n".join(copy["thanks"]))
@@ -656,9 +669,10 @@ def build_copy(args: argparse.Namespace) -> Path:
             "",
             copy["cast_header"],
             "",
-            *[f"{c} {l}" for c, l, _ in rows],
+            *company_lines.splitlines(),
             "",
             copy["thanks_header"],
+            "",
             *copy["thanks"],
             "",
             copy["final"],
@@ -712,18 +726,22 @@ def render_video(args: argparse.Namespace) -> Path:
             font_cache[key] = f
         return font_cache[key]
 
+    # 三级亮度：片名最亮，正文次之，状态最暗；字体、字号、字重、字距、行高全篇一致。
+    text_title = (255, 255, 255)
+    text_body = (220, 220, 220)
+    text_secondary = (150, 150, 150)
     styles = {
-        "title": {"size": 64, "height": 96, "color": (242, 242, 242)},
-        "dedication": {"size": 36, "height": 56, "color": (214, 214, 214)},
-        "credits": {"size": 36, "height": 56, "color": (224, 224, 224)},
-        "header": {"size": 36, "height": 56, "color": (255, 255, 255)},
+        "title": {"size": 36, "height": 56, "color": text_title},
+        "dedication": {"size": 36, "height": 56, "color": text_body},
+        "credits": {"size": 36, "height": 56, "color": text_body},
+        "header": {"size": 36, "height": 56, "color": text_body},
         "company": {"size": 36, "height": 56},
-        "thanks": {"size": 36, "height": 56, "color": (216, 216, 216)},
-        "final": {"size": 36, "height": 56, "color": (240, 240, 240)},
+        "thanks": {"size": 36, "height": 56, "color": text_body},
+        "final": {"size": 36, "height": 56, "color": text_body},
         "blank": {"height": 36},
     }
-    company_color = (232, 230, 224)
-    status_color = (136, 136, 136)
+    company_color = text_body
+    status_color = text_secondary
 
     def classify(line: str, first: bool = False) -> str:
         if first:
@@ -794,16 +812,7 @@ def render_video(args: argparse.Namespace) -> Path:
                 continue
             f = font(item["size"])
             baseline = baseline_for(f, item["height"], y_top)
-            if kind == "header":
-                tracking = 10
-                widths = [draw.textlength(ch, font=f) for ch in item["text"]]
-                total = sum(widths) + tracking * (len(item["text"]) - 1)
-                x = (width - total) / 2
-                for ch, w in zip(item["text"], widths):
-                    draw.text((x, baseline), ch, font=f, fill=item["color"], anchor="ls")
-                    x += w + tracking
-            else:
-                draw.text((width / 2, baseline), item["text"], font=f, fill=item["color"], anchor="ms")
+            draw.text((width / 2, baseline), item["text"], font=f, fill=item["color"], anchor="ms")
         return frame
 
     frames_dir = Path(args.frames_dir) if args.frames_dir else out_path.parent / "_frames"
@@ -817,13 +826,13 @@ def render_video(args: argparse.Namespace) -> Path:
             frame = Image.blend(black, frame, idx / fade_frames)
         elif idx > total_frames - fade_frames:
             frame = Image.blend(black, frame, (total_frames - idx) / fade_frames)
-        frame.save(frames_dir / f"frame_{idx:04d}.png")
+        frame.save(frames_dir / f"frame_{idx:05d}.png")
         if idx % 60 == 0:
             log(f"帧 {idx}/{total_frames}")
     temp_path = out_path.with_suffix(".silent.mp4")
     subprocess.run([
         "ffmpeg", "-y", "-loglevel", "error", "-framerate", str(fps),
-        "-i", str(frames_dir / "frame_%04d.png"),
+        "-i", str(frames_dir / "frame_%05d.png"),
         "-c:v", "libx264", "-preset", "medium", "-crf", "18",
         "-pix_fmt", "yuv420p", "-movflags", "+faststart", str(temp_path),
     ], check=True)
@@ -931,7 +940,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_render.add_argument("--width", type=int, default=1080)
     p_render.add_argument("--height", type=int, default=1080)
     p_render.add_argument("--duration", type=float, default=30)
-    p_render.add_argument("--fps", type=int, default=30)
+    p_render.add_argument("--fps", type=int, default=60)
     p_render.add_argument("--font", default="")
     p_render.add_argument("--audio", default="")
     p_render.add_argument("--frames-dir", default="")
@@ -965,7 +974,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_all.add_argument("--template", default="")
     p_all.add_argument("--out", default="")
     p_all.add_argument("--duration", type=float, default=30)
-    p_all.add_argument("--fps", type=int, default=30)
+    p_all.add_argument("--fps", type=int, default=60)
     p_all.add_argument("--font", default="")
     p_all.add_argument("--audio", default="")
 

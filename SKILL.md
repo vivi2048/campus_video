@@ -150,11 +150,11 @@ python campus_video.py render \
 默认规格：
 
 - 1080 × 1080
-- 30fps
+- 60fps
 - 30 秒
 - 黑底 + 极轻暗角
-- 片名 64，其余 36
-- 全篇统一字重
+- 全篇 36，统一字体、字重、字距、行高
+- 三级亮度：片名 / 正文 / 状态
 - 开头/结尾 0.8 秒淡入淡出
 - 全角标点 + 「」引号
 
@@ -164,7 +164,7 @@ python campus_video.py render \
 --font "C:/Windows/Fonts/NotoSansSC-VF.ttf"
 --audio bgm.mp3
 --width 1080 --height 1080
---fps 30
+--fps 60
 --duration 30
 ```
 
@@ -201,11 +201,17 @@ python campus_video.py all \
 参演名单
 
 公司A 简历挂
-公司B 笔试挂
-公司C 一面挂
-公司D 已OC
+公司B 简历挂
+
+公司C 笔试挂
+公司D 笔试挂
+
+公司E 一面挂
+
+公司F 已OC
 
 特别鸣谢
+
 所有发过「感谢您投递」的公司
 所有在深夜失效的测评链接
 所有「请于 48 小时内完成」的 AI 面试
